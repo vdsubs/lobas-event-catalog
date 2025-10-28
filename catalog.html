@@ -1,47 +1,95 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Каталог напитков</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Каталог — напитки</title>
+
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header style="text-align:center;padding:1rem;">
-    <button onclick="window.history.back()" class="back-button">← Назад</button>
-    <h1 id="catalogTitle"></h1>
+  <header style="padding:12px 16px; display:flex; align-items:center; gap:12px;">
+    <button onclick="history.back()" style="background:transparent;border:none;font-size:20px;cursor:pointer">←</button>
+    <h1 id="catalogTitle" style="margin:0;font-size:20px;"></h1>
   </header>
 
-  <main>
-    <div id="drinksRow" class="drinks-row"></div>
+  <main style="padding:8px 12px;">
+    <div id="drinksRow" class="drinks-row" aria-live="polite"></div>
+    <p id="emptyNotice" style="padding:12px;display:none;color:#666"></p>
   </main>
 
   <script>
-  const params = new URLSearchParams(window.location.search);
-  const catalogName = params.get('name');
-  document.getElementById('catalogTitle').textContent = catalogName || 'Каталог';
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const catalogName = params.get('name') ? decodeURIComponent(params.get('name')) : null;
+      const titleEl = document.getElementById('catalogTitle');
+      const drinksRow = document.getElementById('drinksRow');
+      const emptyNotice = document.getElementById('emptyNotice');
 
-  Papa.parse("catalog.csv", {
-    download: true,
-    header: true,
-    complete: (results) => {
-      const data = results.data.filter(r => r.catalog === catalogName);
-      const row = document.getElementById('drinksRow');
-      data.forEach(d => {
-        const card = document.createElement('div');
-        card.className = 'drink-card';
-        card.innerHTML = `
-          <img src="${d.image}" alt="${d.name}">
-          <div class="drink-info">
-            <h3>${d.name}</h3>
-            <p>${d.about || ''}</p>
-            <strong>${d.price ? d.price + ' ₽' : ''}</strong>
-          </div>`;
-        row.appendChild(card);
+      titleEl.textContent = catalogName || 'Каталог';
+
+      Papa.parse("catalog.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          if (!results || !results.data) {
+            emptyNotice.style.display = 'block';
+            emptyNotice.textContent = 'Ошибка загрузки каталога.';
+            console.error('PapaParse: no data', results);
+            return;
+          }
+          const rows = results.data.map(r => ({
+            name: (r.name || '').trim(),
+            about: (r.about || '').trim(),
+            catalog: (r.catalog || '').trim(),
+            price: (r.price || '').trim(),
+            image: (r.image || '').trim(),
+            pdf: (r.pdf || '').trim()
+          })).filter(r => r.catalog && r.name);
+
+          const drinks = catalogName ? rows.filter(r => r.catalog === catalogName) : rows;
+          if (!drinks.length) {
+            emptyNotice.style.display = 'block';
+            emptyNotice.textContent = 'В этом каталоге пока нет напитков.';
+            return;
+          }
+
+          drinksRow.innerHTML = '';
+          drinks.forEach((d, idx) => {
+            const img = d.image || `https://placehold.co/600x900?text=${encodeURIComponent(d.name)}`;
+            const card = document.createElement('div');
+            card.className = 'drink-card';
+            card.innerHTML = `
+              <img src="${img}" alt="${escapeHtml(d.name)}">
+              <div class="drink-info" role="region" aria-label="${escapeHtml(d.name)} info">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <h3 style="margin:0;font-size:16px;font-weight:700">${escapeHtml(d.name)}</h3>
+                  <strong style="font-size:13px">${d.price ? d.price + ' ₽' : ''}</strong>
+                </div>
+                <p style="margin:8px 0 0;color:#444;font-size:13px">${escapeHtml(d.about || '')}</p>
+                <div class="more" style="margin-top:8px"></div>
+              </div>`;
+            // На мобильных клик раскрывает
+            card.addEventListener('click', (e) => {
+              card.classList.toggle('expanded');
+            }, { passive: true });
+
+            drinksRow.appendChild(card);
+            // небольшая задержка для анимации последовательного появления
+            setTimeout(()=>card.classList.add('active'), 40 + idx * 14);
+          });
+        },
+        error: (err) => {
+          emptyNotice.style.display = 'block';
+          emptyNotice.textContent = 'Ошибка при загрузке CSV (см. консоль).';
+          console.error('PapaParse error', err);
+        }
       });
-    }
-  });
+
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    });
   </script>
 </body>
 </html>
