@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Каталог напитков</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+  <header style="text-align:center;padding:1rem;">
+    <button onclick="window.history.back()" class="back-button">← Назад</button>
+    <h1 id="catalogTitle"></h1>
+  </header>
+
+  <main>
+    <div id="drinksRow" class="drinks-row"></div>
+  </main>
+
+  <script>
+  const params = new URLSearchParams(window.location.search);
+  const catalogName = params.get('name');
+  document.getElementById('catalogTitle').textContent = catalogName || 'Каталог';
+
+  Papa.parse("catalog.csv", {
+    download: true,
+    header: true,
+    complete: (results) => {
+      const data = results.data.filter(r => r.catalog === catalogName);
+      const row = document.getElementById('drinksRow');
+      data.forEach(d => {
+        const card = document.createElement('div');
+        card.className = 'drink-card';
+        card.innerHTML = `
+          <img src="${d.image}" alt="${d.name}">
+          <div class="drink-info">
+            <h3>${d.name}</h3>
+            <p>${d.about || ''}</p>
+            <strong>${d.price ? d.price + ' ₽' : ''}</strong>
+          </div>`;
+        row.appendChild(card);
+      });
+    }
+  });
+  </script>
+</body>
+</html>
