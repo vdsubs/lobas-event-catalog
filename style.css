@@ -1,0 +1,56 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #fafafa;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  text-align: center;
+  background: #222;
+  color: white;
+  padding: 1rem;
+}
+
+#catalog-list, #drink-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: scale(1.02);
+}
+
+.card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.card-content {
+  padding: 0.5rem 1rem;
+}
+
+.hidden {
+  display: none;
+}
+
+.back-button {
+  margin: 1rem;
+  background: none;
+  border: none;
+  color: #007aff;
+  font-size: 1rem;
+  cursor: pointer;
+}
