@@ -1,31 +1,124 @@
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script>
-Papa.parse("catalog.csv", {
-  download: true,
-  header: true,
-  complete: (results) => {
-    const data = results.data.filter(r => r.catalog && r.name);
-    const catalogs = [...new Set(data.map(d => d.catalog))];
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Каталоги напитков — Главная</title>
 
-    const grid = document.getElementById('catalogGrid');
-    catalogs.forEach(cat => {
-      const sample = data.find(d => d.catalog === cat && d.image);
-      const img = sample ? sample.image : 'https://placehold.co/600x900?text='+encodeURIComponent(cat);
-      const pdf = sample.pdf;
-      const card = document.createElement('div');
-      card.className = 'catalog-card';
-      card.innerHTML = `
-        <img src="${img}" alt="${cat}">
-        <div class="catalog-footer">
-          <h3>${cat}</h3>
-          <p>Каталог напитков</p>
-        </div>`;
-      card.onclick = () => {
-        if (pdf) window.open(pdf, '_blank');
-        else window.location.href = 'catalog.html?name=' + encodeURIComponent(cat);
-      };
-      grid.appendChild(card);
+  <!-- tailwind CDN только для возможного быстрого использования (как в твоём шаблоне) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PapaParse для чтения CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Каталоги напитков</h1>
+
+    <!-- spacer = высота афиши -->
+    <div class="top-spacer" aria-hidden="true"></div>
+
+    <!-- сюда подгрузятся каталоги -->
+    <div id="catalogGrid" class="catalog-grid" aria-live="polite"></div>
+  </main>
+
+  <script>
+    // Безопасная инициализация после загрузки DOM
+    document.addEventListener('DOMContentLoaded', () => {
+      const catalogGrid = document.getElementById('catalogGrid');
+
+      // Загружаем catalog.csv из корня репо
+      Papa.parse("catalog.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          if (!results || !results.data) {
+            catalogGrid.innerHTML = '<p style="padding:1rem">Ошибка загрузки данных.</p>';
+            console.error('PapaParse: no data', results);
+            return;
+          }
+          // Очищаем и приводим строки
+          const rows = results.data.map(r => {
+            return {
+              name: (r.name || '').trim(),
+              about: (r.about || '').trim(),
+              catalog: (r.catalog || '').trim(),
+              price: (r.price || '').trim(),
+              image: (r.image || '').trim(),
+              pdf: (r.pdf || '').trim() // опционально
+            };
+          }).filter(r => r.catalog && r.name);
+
+          renderCatalogs(rows);
+          adjustLast();
+          window.addEventListener('resize', adjustLast);
+        },
+        error: (err) => {
+          catalogGrid.innerHTML = '<p style="padding:1rem">Ошибка загрузки CSV — см. консоль.</p>';
+          console.error('PapaParse error', err);
+        }
+      });
+
+      // Рендер уникальных каталогов
+      function renderCatalogs(data) {
+        catalogGrid.innerHTML = '';
+        const catalogs = Array.from(new Set(data.map(d => d.catalog)));
+
+        catalogs.forEach((cat, idx) => {
+          // возьмём примерное изображение из первой записи каталога (если есть)
+          const sample = data.find(d => d.catalog === cat && d.image);
+          const img = sample && sample.image ? sample.image : `https://placehold.co/600x900?text=${encodeURIComponent(cat)}`;
+
+          const card = document.createElement('div');
+          card.className = 'catalog-card';
+          card.setAttribute('role','button');
+          card.setAttribute('tabindex','0');
+          card.dataset.catalog = cat;
+          card.innerHTML = `
+            <img src="${img}" alt="${escapeHtml(cat)}">
+            <div class="catalog-footer">
+              <h3 style="margin:0;font-size:20px;font-weight:700">${escapeHtml(cat)}</h3>
+              <p style="margin:6px 0 0;color:#444">Каталог с уникальными напитками</p>
+            </div>
+          `;
+
+          // клик: если есть pdf → открыть, иначе перейти на catalog.html
+          card.addEventListener('click', () => {
+            // если в данных есть pdf-строка для каталога — откроем её
+            const samplePdf = data.find(d => d.catalog === cat && d.pdf);
+            if (samplePdf && samplePdf.pdf) {
+              window.open(samplePdf.pdf, '_blank');
+            } else {
+              window.location.href = `catalog.html?name=${encodeURIComponent(cat)}`;
+            }
+          });
+
+          // клавиатурный доступ
+          card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              card.click();
+            }
+          });
+
+          catalogGrid.appendChild(card);
+        });
+      }
+
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      // adjustLast из оригинала — центрирует последнюю карточку когда нечётное количество
+      function adjustLast(){
+        const grid = document.getElementById('catalogGrid');
+        if (!grid) return;
+        const items = Array.from(grid.children);
+        items.forEach(it=>it.classList.remove('only-last'));
+        const cols = window.innerWidth >= 640 ? 2 : 1;
+        if (cols > 1 && items.length % cols === 1) items[items.length-1].classList.add('only-last');
+      }
     });
-  }
-});
-</script>
+  </script>
+</body>
+</html>
